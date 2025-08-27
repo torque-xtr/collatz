@@ -1,0 +1,287 @@
+========================Basic tests==============================
+
+Check numbers from https://www.ericr.nl/wondrous/ for various stats
+
+for functions output and arguments, see collatz_scripts.txt
+
+quit()
+python
+from collatz import *
+
+collatz_calc(27, ftype='def') #basic case
+
+#((111, [41, 70], 27, 1, 9232, 96, 1), (-0.012895169046477363, 0.5857142857142857, 2.770292147322527), [27, 82, 41, 124, 62, 31, 94, 47, 142, 71, 214, 107, 322, 161, 484, 242, 121, 364, 182, 91, 274, 137, 412, 206, 103, 310, 155, 466, 233, 700, 350, 175, 526, 263, 790, 395, 1186, 593, 1780, 890, 445, 1336, 668, 334, 167, 502, 251, 754, 377, 1132, 566, 283, 850, 425, 1276, 638, 319, 958, 479, 1438, 719, 2158, 1079, 3238, 1619, 4858, 2429, 7288, 3644, 1822, 911, 2734, 1367, 4102, 2051, 6154, 3077, 9232, 4616, 2308, 1154, 577, 1732, 866, 433, 1300, 650, 325, 976, 488, 244, 122, 61, 184, 92, 46, 23, 70, 35, 106, 53, 160, 80, 40, 20, 10, 5, 16, 8, 4, 2, 1], [0, 2, 0, 2, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 2, 0, 2, 2, 0, 2, 0, 2, 2, 0, 2, 0, 2, 0, 2, 2, 0, 2, 0, 2, 0, 2, 0, 2, 2, 0, 2, 2, 2, 0, 2, 0, 2, 0, 2, 2, 0, 2, 0, 2, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 2, 2, 0, 2, 0, 2, 0, 2, 0, 2, 2, 2, 2, 0, 2, 2, 0, 2, 2, 0, 2, 2, 2, 2, 0, 2, 2, 2, 0, 2, 0, 2, 0, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 0], None)
+
+
+collatz_calc(19, add=5, ftype='def') #new cycle detected from inside
+((8, [3, 5], 19, 19, 152, 8, 4), (0.0, 0.6, 1.706226740099915), [19, 62, 31, 98, 49, 152, 76, 38, 19], [0, 2, 0, 2, 0, 2, 2, 2, 0], None)
+
+collatz_calc(31, add=5, ftype='def') #--//--, starting not from n_min
+#((8, [3, 5], 31, 31, 152, 6, 4), (0.0, 0.6, 1.462987548201858), [31, 98, 49, 152, 76, 38, 19, 62, 31], [0, 2, 0, 2, 2, 2, 0, 2, 0], None)
+
+collatz_calc(19, add=5, ns_min = [19,], ftype='def') #starting on n_min: always return full cycle
+((8, [3, 5], 19, 19, 152, 8, 4), (0.0, 0.6, 1.706226740099915), [19, 62, 31, 98, 49, 152, 76, 38, 19], [0, 2, 0, 2, 0, 2, 2, 2, 0], None)
+
+collatz_calc(31, add=5, ns_min = [19,], ftype='def') #n_0 inside cycle, but not n_min: stop at n_min of the cycle
+#((6, [2, 4], 31, 19, 152, 6, 0), (-0.035434682146907294, 0.5, 1.462987548201858), [31, 98, 49, 152, 76, 38, 19], [0, 2, 0, 2, 2, 2, 0], None)
+
+collatz_calc(63728127, ftype='short') #a number with large completeness
+#((949, [357, 592], 63728127, 1, 966616035460, 613, 1), (-0.008223741996360168, 0.6030405405405406, 1.5357182772174516), [], [], None)
+
+collatz_calc(7, mult=5, ctr_lim=1e6, log_n_max=50, ftype='def')[:2] # divergent sequence, limiting log_n_max
+#((1574, [523, 1051], 7, 113439670069827390580248713307055035466314509077216, 113439670069827390580248713307055035466314509077216, 1574, 2), (0.031264083173262985, 0.49762131303520457, 59.229536201368745))
+
+collatz_calc(7, mult=5, ctr_lim=1e3, log_n_max=50, ftype='def')[:2] # divergent sequence, limiting ctr_lim
+#((1000, [331, 669], 7, 7014269785336732191339839511433, 385613559466780225399232321580416, 1000, 3), (0.030000884425841146, 0.4947683109118087, 38.5590200826888))
+
+
+#---------------------
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+collatz(179, add=1, mult=23, divisors=[2,3,7], log_n_max=10, ctr_lim=10, ftype='c_int')
+
+collatz(111, ftype='c_int')
+
+#vary all params
+
+quit()
+python
+from collatz import *
+
+#n_0 = 27
+#n_0 = 63728127
+n_0 = 7
+mult, add, divisors = 3, 1, [2,]
+mult, add, divisors = 5, 1, [2,]
+#mult, add, divisors = 23, 1, [2,3,5,7]
+log_n_max, ctr_lim, jit_thr = 100, 1005000, 16
+
+ctr = 0
+n_range = range_gen((3, 20), 10000, [])
+for n_0 in n_range:
+ ctr += 1
+ vs_0 = collatz_calc(n_0, mult=mult, add=add, divisors=divisors, ftype='def', jit_thr=jit_thr, ctr_lim=ctr_lim, log_n_max=log_n_max)
+ vs_i0, vs_f0, il0, ol0, res_buf = vs_0
+ for ft in ('', 'def', 'short', 'c_int', 'py_short'):
+  vs_t = collatz_calc(n_0, mult=mult, add=add, divisors=divisors, ftype=ft, jit_thr=jit_thr, ctr_lim=ctr_lim, log_n_max=log_n_max)
+  vs_i, vs_f, il, ol, res_buf = vs_t
+  break_cond = False
+  if vs_i[:6] != vs_i0[:6] or (ft in ('def', 'c_full') and (il != il0 or ol != ol0)):
+   print(n_0, ctr, ft)
+   print(vs_i)
+   print(vs_i0)
+   break_cond = True
+   break
+ if break_cond:
+  break
+
+#vs_f are calculated only in one place (collatz_calc->log_stats_float), they are always the same.
+
+#for c_full, add result buffer, or freeing procedure to avoid memory overflow on python side (c_full not used in actual calculations)
+
+
+
+
+collatz(179, add=1, mult=23, divisors=[2,3,7], log_n_max=10, ctr_lim=1e8, ftype='c_int')
+
+
+
+
+
+
+
+#=============================================================================================================
+#===============================================performance===================================================
+#=============================================================================================================
+
+
+скорость
+
+timeit('collatz_def(63728127)', number=1000, globals=globals()) #1.6M iters/s
+timeit('collatz_jit(63728127)', number=1000, globals=globals()) #4M iters/s
+timeit('63728127*3+1', number=1000000, globals=globals()) #70M/s
+timeit('divmod(63728127, 2)', number=1000000, globals=globals()) #10M/s
+timeit('fin_det_def(63728127, [2,3])', number=1000000, globals=globals()) #5M/s o_O (исключаем)
+timeit('log_stats(collatz_def(63728127))', number=1000, globals=globals()) #1.3M iters/s #OK
+timeit('log_stats_ext(log_stats(collatz_def(63728127)))', number=1000, globals=globals()) #1.2M iters/s #OK
+timeit('collatz_calc(63728127)', number=1000, globals=globals()) #4M iters/s
+
+timeit('collatz(993)', number=10000, globals=globals()) #0.65 s
+
+timeit('collatz(63728127)', number=1000, globals=globals())
+timeit('collatz_jit(63728127)', number=1000, globals=globals())
+timeit('collatz_def(63728127, ftype=\'mpz\')', number=1000, globals=globals()) #1.77s
+timeit('collatz_def(63728127)', number=1000, globals=globals())
+timeit('collatz_calc(63728127)', number=1000, globals=globals())
+
+timeit('collatz(7, mult=5, log_n_max=200, ctr_lim=100500)', number=100, globals=globals()) #0.84s
+timeit('collatz(7, mult=5, log_n_max=200, ctr_lim=100500, ftype=\'mpz\')', number=100, globals=globals()) #1.51s
+
+timeit('collatz_def(7219136416377236271195)', number=1000, globals=globals())
+
+timeit('collatz_def(7219136416377236271195)', number=1000, globals=globals())
+
+
+timeit('collatz(7, mult=5, log_n_max=1000, ctr_lim=100500)', number=100, globals=globals())
+timeit('collatz(7, mult=5, log_n_max=1000, ctr_lim=100500, log_mpz_thr=500, ftype=\'def\')', number=100, globals=globals()) #faster if log_n_max < 1000
+
+
+
+#-----------------------------middle- and upper-level stat functions-----------------------
+
+#------------mid-level---------
+
+quit()
+python
+from collatz import *
+
+mad = (3,1,(2,))
+mad = (23, 1, (2,3,7,11,13,19)) #cycle at 1487753
+#mad = (23, 1, (2,3,7,13,19))
+
+vs_sl = avg_slope_calc(n_digits=60, calc_len=122, mad=(), n_iter_lim=1e9, f_cond=None, t_lim=5, n_bins=10, exp_lim=2.0, sigma_thr=0.0, skip=51, ftype='')
+
+vs_rec = records_path_calc(mad, n_start=3, n_end=1e20, vals_add=vs_sl, t_lim=20, log_n_max=10000, ctr_lim=1e9, ftype='print')
+
+ns_min_found = vs_rec['cycle_ns_min']
+
+vs_rng = stats_range(log_range=(5, 6), mad=mad, log_n_max=1000, ctr_lim=1e9, n_sample=100500, t_lim=5, nums=[], table_len=3, rec_min_rel=100.0, ftype='odd print', fn='', f_cond=None, vals_add={}, ns_min_add=ns_min_found)
+
+vs_rng_2 = stats_range(log_range=(6, 7), mad=mad, log_n_max=1000, ctr_lim=1e9, n_sample=2e6, t_lim=10, nums=[], table_len=3, rec_min_rel=100.0, ftype='odd print', fn='', f_cond=None, vals_add=vs_rng, ns_min_add=ns_min_found)
+
+#add vs_rec only (should pass n_min from a high cycle)  #OK
+vs_all = stats_calc(mad=mad, sigma_disp=6.0, n_sample_cycles=2e4, log_n_max=9000, log_range_max=18, n_records=5, rec_min_rel=1e2, vals_add=vs_rec, t_lim_slope=2, t_lim_records=2, t_lim_range=5, slope_sigma_thr=1e-8, slope_calc_len=122, slope_skip_lim=51, ftype='print_full')
+
+pp.pprint(vs_all)
+
+#add: vs_all, 
+vs_all_2 = stats_calc(mad=mad, sigma_disp=6.0, n_sample_cycles=1e5, log_n_max=9000, log_range_max=18, n_records=5, rec_min_rel=1e2, vals_add=vs_all, t_lim_slope=5, t_lim_records=5, t_lim_range=5, slope_sigma_thr=1e-8, slope_calc_len=122, slope_skip_lim=51, ftype='print_full')
+
+vs_all['cycle_ctrs'], vs_all_2['cycle_ctrs'] #OK
+
+vs_sl_0, vs_rec_0, vs_rng_0, vs_all_0 = copy.deepcopy(vs_sl), copy.deepcopy(vs_rec), copy.deepcopy(vs_rng), copy.deepcopy(vs_all)
+
+
+#------------top-level---------
+
+#test firstly avg_slope_all, then stats_calc_all
+#test records_path_all last to check if cycle_ns_min and cycle_ctrs are updated correctly.
+
+#----avg_slope_all-- (+)
+
+quit()
+python
+from collatz import *
+
+ks = mad_combos(n_primes=12, add_lim=2, n_divs_max=6)
+
+fn_sl = 'stats_records_path_1.bin'
+
+len_blocks = {k: 122 for k in ks }
+len_blocks.update({(3,1,(2,)): 92, (5,1,(2,3)): 72})
+
+d=avg_slope_all(data_all={}, fn_d=fn_sl, ks=ks[:], n_digits=200, calc_len=len_blocks, n_iter_lim=1e9, f_cond=None, t_lim=1.0, exp_lim=2.0, sigma_thr=0.0, skip=21, ftype='save')
+
+data_sl = db_load(fn_sl)
+
+
+ks_1 = db_keys(data_sl, ftype='tuple', cond = 'abs(db[x][\'slope_avg\']) < 0.003')
+ks_2 = ( (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (7,1,(2,3,5)), (11,1,(2,3)), (11,1,(2,5)), (11,1,(2,3,5)), (13,1,(2,3)), (13,1,(2,5)), (13,1,(2,3,5)), (17,1,(2,3,5,7,11,13)) )
+
+ks_long = sorted(tuple(set(ks_1 + ks_2)))
+
+d=avg_slope_all(data_all={}, fn_d=fn_sl, ks=ks_long, n_digits=400, calc_len=len_blocks, n_iter_lim=1e9, f_cond=None, t_lim=10.0, exp_lim=2.0, sigma_thr=0.0, skip=51, ftype='save')
+
+data_sl = db_load(fn_sl)
+
+data_sl = db_load(fn_sl, cond='db[x][\'slope_avg\'] < 0')
+
+db_save(data_sl, fn_sl)
+
+
+#------------------stats_calc_all---------------------
+
+
+quit()
+python
+from collatz import *
+
+ks = mad_combos(n_primes=12, add_lim=2, n_divs_max=6)
+
+fn = 'stats_demo.bin'
+len_blocks = {k: 122 for k in ks }
+len_blocks.update({(3,1,(2,)): 92, (5,1,(2,3)): 72})
+
+d=stats_calc_all(data_all={}, fn_d=fn, ks=ks, sigma_disp=6.0, n_sample_cycles=3e3, log_n_max=400, log_range_max=4, n_records=5, rec_min_rel=1e2, t_lim_slope=0.2, t_lim_records=0.1, t_lim_range=0.5, slope_sigma_thr=1e-8, slope_calc_len=len_blocks, slope_skip_lim=51, ftype='save print_full')
+ 
+data_sl = db_load(fn)
+
+
+#-----------------records_path_all
+
+#db_recs = {x:{'slope_avg': db[x]['slope_avg']} for x in ks}
+#test with (19,1,(2,3,5,7)) on cycle_min 6e6
+
+quit()
+python
+from collatz import *
+
+fn_d = 'stats_demo.bin'
+db_slopes = db_load(fn_d)
+
+ks = mad_combos(n_primes=12, add_lim=2, n_divs_max=6)
+mad_ch = (19,1,(2,3,5,7))
+
+ts_lim= {x:2 for x in ks}
+ts_lim[mad_ch] = 60
+
+vs=records_path_all(data_all={}, fn_d=fn_d, ks=ks, n_start=3, n_end=5e7, t_lim=ts_lim, log_n_max=10000, ctr_lim=3e9,ftype='save print')
+
+db = db_load(fn_d)
+
+ks_long = ((3,1,(2,)), (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (23,1,(2,3,7,11,17)), (17,1,(2,3,5,7,11,13)) )
+
+vs=records_path_all(data_all={}, fn_d=fn_d, ks=ks_long, n_start=3, n_end=3e9, t_lim=30, log_n_max=10000, ctr_lim=3e9, ftype='save print')
+
+db = db_load(fn_d)
+
+ks_long = ((3,1,(2,)), (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (23,1,(2,3,7,11,17)), (17,1,(2,3,5,7,11,13)) )
+
+ks_add_all = mad_combos(n_primes=12, add_lim=102, n_divs_max=6, ftype='')
+ks_add = ()
+for k_long in ks_long:
+ ks_add_cur = tuple(k for k in ks_add_all if (k[0], 1, k[2]) == k_long)[1:5]
+ ks_add += ks_add_cur
+
+vs=records_path_all(data_all={}, fn_d=fn_d, ks=ks_add, n_start=3, n_end=3e9, t_lim=1, log_n_max=10000, ctr_lim=3e9, ftype='save print')
+
+db = db_load(fn_d)
+
+
+#---------------------------------------------------------------------------
+#-------------------------------various tests-------------------------------
+#---------------------------------------------------------------------------
+
+
+check consistency of record tables
+
+quit()
+python
+from collatz import *
+
+fn_d = 'stats_test.bin'
+with open(fn_d, 'rb') as d:
+ data_all = pickle.load(d) 
+
+vs = data_all[(7, (2,5), 1)]
+
+rs = vs['records_jump']
+
+len_recs = len(rs.top)
+for i in range(len_recs):
+ n, c = rs.lst[i], rs.top[i]
+ vs_f = collatz_calc(n, mult=7, divisors=[2,5], add=1, ftype='def', log_n_max=1000, ctr_lim=1e6)[1]
+ c_ch = vs_f[2]
+ print(f"{c_ch:.6f} {c:.6f} {n}")

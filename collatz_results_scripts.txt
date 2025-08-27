@@ -1,0 +1,945 @@
+This document consists of pre-requisites, definitions, summary of results, and scripts used to obtain the results, with more detailed descriptions.
+
+#unfinished, tested
+
+
+#=====================pre-requisites========================
+
+#------OS--------------------
+
+Windows 10, 64 bits. For other OS, change hard-coded paths in collatz_c.py accordingly
+
+
+#------C compiler------------
+
+MinGW64, installed under MSYS64.
+
+
+#------python non-default libraries------
+pip install numpy numba scipy
+
+All scripts were written and tested on Python 3.12 and C
+
+
+#=========================definitions====================================
+
+#------------general-------------
+
+#---Generalized Collatz function (GCF) is defined as follows. 
+-If a number is divisible by any of primes from a set (e.g. (2,3,7,11,17)), divide it by this number; 
+-othervise, multiply it by some another prime number and add another prime number (e.g. 23 and 1). 
+
+Hereafter, a shorthand notation like 23*n+1 / (2,3,7,11,13) is used, where brackets around (23*n+1) are omitted for brevity.
+In much of the following functions, multiplier, addition and divisors are packed into a single 'mad' argument, like (7,1,(2,5)).
+
+#---Classical GCF is Collatz function where number is divided by 2 or multiplied by 3 with addition of 1
+
+#---Iteration - a single application of GCF to a number.
+
+#---Iteration log - a sequence of numbers resulting from iterative application of GCF, from some starting number n_0 to an end namber n_last which satisfies some termination conditions.
+
+#---Odd/even iteration - an iteration in which multiplication+addition / division step is performed.
+
+#---Descending (sub)sequence - part of an iteration log between two mult+add steps; in example, in [3,10,5,16,8,4,2,1] log, descending sequences are [10,5] and [16,8,4,2,1].
+
+#---completeness - ratio of numbers of odd and even iterations in an iteration log
+
+#---n, n_next, n_0, n_last - any number subject to Collatz iteration, a resulting number for such iteration, first and last numbers in iteration log
+
+#---n_i, n_i1, n_i2 - ith, i1th, i2th numbers from an iteration log (in such cases, n_iter = i2 - i1, in example)
+
+#---n_iter = length of an iteration log (see below on termination conditions)
+
+#---cycle - a sequence of numbers, starting from n_0, which after some iterations returns to n_0 (e.g. (1,4,2,1) in classical 3n+1/(2,) GCF)
+
+#---cycle_min, cycle_max - smallest and biggest number in a cycle
+
+#--------characteristics, statistics, records--------------
+
+#----convergent number is defined as a number for which iteration log reaches any of the cycles which exist for a given GCF.
+If a number is convergent, iteration log is calculated until minimum of a corresponding cycle, excluding it. All other vaules are 
+
+#---Divergence is technically defined as growing beyond a limit 10**log_n_max, where log_n_max >> log(n_0).
+
+#---Undefined behavior is technically defined as neither reaching limiting number nor converging to a cycle after some number of iterations ctr_lim.
+
+All derived values are calculated for such type of iteration logs, including starting numbers which are part of cycles, except statistics for cycles themselves. 
+
+(see below on validity of these definitions under various choices of log_n_max and ctr_lim)
+
+#------------derived values---------------
+
+#---Slope is defined as (log10(n_i2) - log10(n_i1)) / (i2 - i1) for a full iteration log or any part of it
+
+#---Average slope - an expected value of log10(n_next) - log10(n) for some number _inside_ an iteration log for a given GCF. In other words, it is an average change of logarithm of a number after a single application of GCF to it. Average slope is the measure of convergence/divergence of a GCF. It is NOT equal to average of a logarithmic change after a single application of GCF to a sample of random numbers because of starting evvect, see below
+
+#---Jump is defined as logarithm of maximum of iteration log divided by logarithm of the starting number n_0. In example, for n_0 = 27 and classical GCF, maximum of iteration log is 9232 and jump = log10(9232) / log10(27) ~ 2.77 
+
+GCF is called converging if average slope is < 0 and diverging otherwise.
+
+
+
+#============================summary=====================================
+
+An empirical evidence is found that if a generalized Collatz function is averagely converging, then (almost) all numbers are converging under this GCF. This remains true even for extremely slowly converging GCFs like 31n+1/[2,3,5,7,11,23]. Otherwise, almost all big numbers diverge; the fraction of convergent numbers in any given order of magnitude (oomags) tends to 0 with increasing oomag.
+
+Statistics for cycles, slopes and jumps are calculated. Three cycles with n_max around 10**200, consisting of ~10**5 iterations are found; no other cycle exceeding 10**50 is observed.
+
+#----
+
+A statistical method is implemented which predicts maximum possible slope and jump values for any converging GCF, based on iteration statistics for this GCF. This method predicts slope and jump records for numbers within given order of magnitude as well as absolute records as limits of these values at log(n) -> inf. For GCFs with division only by 2, almost strict relation exists between slope and completeness, slope records are also predicted. Calculated jump and slope limits match empirical results observed in https://www.ericr.nl/wondrous/pathrecs.html and values calculated in http://collatz.freehostia.com/TST.html, respectively.
+
+The slope/jump limit prediction method is based on assumprion that GCF iteration logs are Markov chains where each descending subsequence in an iteration logdoes not correlate with previous descending sequence (in other words, each 'mult+add' step 'resets' factorization on primes from the set of divisors. After each mult+add step, new factorization powers appear randomly according to some distribution.
+
+For a converging GCF, the following observations could be made: 
+
+-Observed slopes for iteration logs follow some distribution around mean value.
+
+-The slower is the actual convergence for some number, the farther away is the slope from average value, and the lower is probability of this deviation for each iteration (i.e. more mult+add and less div steps are observed and the less is probability that steps would appear with the needed frequency on each iteration)
+-The same time, the slower is convergence, the more such iterations are in the iteration log
+-Together, this deviation from average slope and increase in number iterations lead to the sharp decrease in probability P that a number n_start will have iteration log longer than n_iter.
+
+-Slope limit is defined as slope at which n_start * P = 1: for a number with 20 digits, only 1 of 10**20 random iteration logs would have such (or bigger) length and such (or smaller) slope. 
+
+-The same logic could be applied to jump records. To climb above 10**(jump*log10(n_0)), either a very large number of slowly climbing iterations, or a smaller number of fast-climbing iterations are needed. For very large jumps, neither way could produce ad iteration log which climps high enough, with high enough probability. For each 'jump' value, P rises, reaches a maximum and then falls with increase of n_iter. 
+
+-Jump limit is defined as value for which n_start * P(n_start, n_iter, jump) maximum of 1 along n_iter axis. 
+
+Calculations show that when n_start increase, slope and jump limits converge to asymptotic values which could be considered absolute limits for a given GCF. Actual jump records could be higher than jump limit for small numbers but ratio of n_max / 10**(log(n_0) * jump_limit) never gets much higher than 1 (see X2(N) values at https://www.ericr.nl/wondrous/pathrecs.html). For 3n+m/(2,) GCFs, especially containing high cycles, completeness records for small numbers also exceed completeness limits, but there always exist some last number which does so, and usually it is not much higher than highest cycle maximum. 
+
+Two methods of slope and jump limits were tested: (1) based on operation type frequencies themselves and (2) based on statistics of (log(n_end) - log(n_start)) for iteration log slices of fixed block length (10 - 150 iterations, usually). In method (1), each mult_add step together with a following division-by-2 step is treated as a single step because they always follow each other, and effective n_iter is calculated based on slope-completeness dependence.
+
+For classic Collatz function, method (1) gives slope, jump and completeness limits equal to 0.0064759125, 2.0000123 and 0.609089761 (6-7 significant digits) which match theoretical values.
+
+For extended GCF, method (1) overestimates records, possibly because of complicated dependence of operation type frequencies on average drop of iteration subsequences. This dependence does not follow simple tilted-variance estimation. Also, for GCF with more than 1 divisors, slope-completeness dependence is not well-defined which does not allow
+
+method (2) gives values which are much closer to ovserved ones (and almost never fall short of them) but is much more computationally-intensive and less precise. For small block lengths (<100), vaues are over-estimated because no long descending sequences appear in statistics; for longer blocks, tail stats are insufficient and noisy even after an hour-long calculation on a PC. With increase of computation time, precision rises very slowly. Yet, it appears that it is possible to predict slope and jump limits with 3-4 digit-precision if computational power from high end of what is reasonable is available, and of course, it is much more efficient than a brute-force calculation of these limits.
+
+
+
+
+
+
+
+#==================================================================================================
+#==================================================================================================
+#============================================scripts===============================================
+#==================================================================================================
+#==================================================================================================
+
+
+
+
+
+#========================================================================
+#====================general statictics calculation======================
+#========================================================================
+
+
+#--------------basic calculation---------------
+
+#see also stats_calc docstring
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+ks = mad_combos(n_primes=12, add_lim=2, n_divs_max=6)
+
+len_blocks = {k: 122 for k in ks }
+len_blocks.update({(3,1,(2,)): 92, (5,1,(2,3)): 72})
+thrs = {k: 1e-5 if len(k[2]) in (2, 3) else 2e-4 for k in ks }
+
+d=stats_calc_all(data_all={}, 
+  fn_d='stats_main.bin',	#filename to which stats are saved
+  ks=ks,			#list of mult-add-divisors parameters
+  sigma_disp=6.0,		#*1, see below
+  n_sample_cycles=2e6,		#short: 1e5, full: 2e6 #number of numbers on which cycle detection and statistics are calculated
+  log_n_max=500,		#terminate GCF iteration if number grows beyond 10**log_n_max
+  log_range_max=14,		#use numbers below 10**log_range_max for cycle stat calculations
+  n_records=100,		#number of entries in the table of completeness, slope and jump records
+  rec_min_rel=1e2,		#check record only if a number N converged to a cycle and N > rec_min_rel * min(cycle)
+  t_lim_slope=1000,		#calculation time limit for asymptotic stats,
+  t_lim_records=60,		#calculation time limit for fast path/jump record calculation,
+  t_lim_range=60,		#calculation time limit for cycle detection/stats calculation,
+  slope_sigma_thr=2e-4,		#terminate asymptotic stats calculation if std.dev of avg slope mean is below this value *2
+  slope_calc_len=len_blocks,	# *3
+  slope_skip_lim=51,		#skip first N iterations in asymptotic stats calculation
+  ftype='save update')
+
+
+
+#recalculate slopes for near-zero cases (where zero is within error) 
+
+fn = 'stats_main.bin'
+db = db_load(fn)
+ks = db_keys(db)
+
+f_lognmax = lambda x, s: log_n_max_calc(db[x]['slope_avg'], db[x]['log_dispersion'], sigma=s)
+
+ks_long = [k for k in ks if len(k[2]) in (2,3) and max(k[2]) < 14]
+ks_long.sort(key = lambda x: max(x[2]))
+slopes_long = np.array([db[k]['slope_avg'] for k in ks_long])
+
+db=avg_slope_all(fn_d=fn, 
+     ks=ks_long, 
+     n_digits=200, 		#calculate on random numbers n_digits long
+     calc_len=122, 
+     n_iter_lim=1e9, 
+     f_cond=None, 
+     t_lim=1000.0, 
+     exp_lim=2.0, 		#log_n_max = exp_lim * n_digits
+     sigma_thr=0.0, 
+     skip=51, 
+     ftype='save ')
+
+
+d=stats_calc_all(data_all={}, 
+  fn_d='stats_main.bin',	#filename to which stats are saved
+  ks=ks_long,			#list of mult-add-divisors parameters
+  sigma_disp=6.0,		#*1, see below
+  n_sample_cycles=2e6,		#short: 1e5, full: 2e6 #number of numbers on which cycle detection and statistics are calculated
+  log_n_max=1000,		#terminate GCF iteration if number grows beyond 10**log_n_max
+  log_range_max=14,		#use numbers below 10**log_range_max for cycle stat calculations
+  n_records=100,		#number of entries in the table of completeness, slope and jump records
+  rec_min_rel=1e2,		#check record only if a number N converged to a cycle and N > rec_min_rel * min(cycle)
+  t_lim_slope=-1,		#do not calculate slopes this time
+  t_lim_records=600,		#calculation time limit for fast path/jump record calculation,
+  t_lim_range=100,		#calculation time limit for cycle detection/stats calculation,
+  slope_sigma_thr=2e-4,		#terminate asymptotic stats calculation if std.dev of avg slope mean is below this value *2
+  slope_calc_len=122		# *3
+  slope_skip_lim=51,		#skip first N iterations in asymptotic stats calculation
+  ftype='save update')
+
+
+#----
+
+
+*1 This value is used to limit log_n_max for records / cycle stats calculations for divergent GCFs to save time. log_n_max is calculated as the number from which probability to return to near-zero is less than defined by -sigma_disp under normal distribution, and the values of slope and dispersion calculated for current GCF. 
+
+*2 See also slope_inf_calc docstring
+
+*3 len_blocks is the length of iteration log on which asymptotic statistics are calculated (after skipping first slope_skip_lim iterations). All asymptotic values except are independent of this, except drop block stats (distribution of (log(N_last) - log(N_first)), which is used in some tipes of limit_calc
+
+
+
+
+#--------------------cycle statistics--------------------------------
+
+#calculate slope_avg and log_disp by slope_inf_calc if precalculated stats not present
+
+
+#----------cycle frequencies vs. log(starting number)
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+db = db_load('stats_main.bin')
+
+oomags = (5, 10, 15, 20, 35, 50, 70)
+mads = ( (3, 29, (2,)),  (13, 1, (2,3,7)), (19, 1, (2, 3, 5, 11, 13)),  (23, 1, (2, 3, 5, 13)), (23, 1, (2, 3, 7, 11, 17)))
+n_sample=1e6
+t_lim=500
+
+for mad in mads:
+ vs = db[mad]
+ slope_avg, log_disp = vs['slope_avg'], vs['log_dispersion']
+ print(f"avg slope {slope_avg:.6f}  {mad}")
+ log_n_max = min(1000, int(log_n_max_calc(slope_avg, log_disp, sigma=5.0)[0])) if slope_avg > 0 else 1000
+ for i in range(len(oomags)):
+  lr = oomags[i]
+  vs_1 = stats_range(log_range=(lr, lr+1), log_n_max=log_n_max + lr, mad=mad, ctr_lim=1e9, n_sample=n_sample, t_lim=t_lim, ftype='')
+  if sum(vs_1['cycle_ctrs']) == 0:
+   break
+  vs_1.update(cycle_info_calc(vs_1)) #calculate cycle frequencies and 
+  if i == 0:
+   print(vs_1['cycle_ns_min'])
+   print(vs_1['cycle_ns_max'])
+  frs = vs_1['cycle_freqs']
+  str_fr = f"{lr}\t"
+  for fr in frs:
+   str_fr += f"{fr:.2e}   "
+  str_fr += f"\t conv, div, undef ctrs: {sum(vs_1['cycle_ctrs'])} {vs_1['div_ctr']} {vs_1['undef_ctr']}"
+  print(str_fr)
+  
+
+# ~3hrs @ these parameters
+
+#------------------------------------
+
+# results: above ns_min, relative fractions of numbers which converge to cycles does not change much with OOMAG of the number
+# see cycle_freqs.txt
+
+
+#-----observed vs. estimated cycle frequencies----------
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+plt.ion()
+plt.show()
+
+db = db_load('stats_base.bin')
+
+ks = list(db.keys())
+#d = db[(17, 1, (2,7,11,13))]
+
+ns_min, obs, est, n_key = [], [], [], []
+for i_k in range(len(ks)):
+ k = ks[i_k]
+ d = db[k]
+ if len(d['cycle_ns_min']) < 3 or d['slope_avg'] > 0 or d['mad'][1] != 1:
+  continue
+ d.update(cycle_info_calc(d, ftype='full'))
+ cycles, cycle_freqs = d['cycles'], d['cycle_freqs']
+ for i in range(1, len(cycles)):
+  fr_est = cycle_freq_est(cycles[i])
+  ns_min.append(min(cycles[i]))
+  obs.append(cycle_freqs[i])
+  est.append(fr_est)
+  n_key.append(i_k)
+
+
+ns_min_arr = np.array(ns_min)
+obs_arr = np.array(obs)
+est_arr = np.array(est)
+i_arr = np.array(n_key)
+
+
+plt.clf()
+plt.scatter(ns_min_arr, obs_arr/est_arr, s=5)
+#plt.scatter(ns_min_arr, obs_arr, s=5)
+
+plt.grid(True)
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel('cycle minimum')
+#plt.ylabel('cycle frequency')
+plt.ylabel('cycle observed vs. estimated rel. frequency')
+plt.title('Only converging sequences')
+
+i_freq = np.where((ns_min_arr > 1e4) * (obs_arr > 0.1))
+i_arr[i_freq]
+np.array(ks, dtype='object')[i_arr[i_freq]]
+db[ks[i_arr[i_freq][0]]].keys()
+
+
+#--------------------
+
+#for cycles with n_min > 3e3, observed frequency is always greater than estimated, sometimes by several oomags.
+#on average, slightly higher than log(fr) ~ -1.0*log(n_min)
+
+
+
+
+#========================================================================
+#====================slope and jump limits calc==========================
+#========================================================================
+
+
+
+#-------------------------------------------------------------------
+#--------------------path record calculations-----------------------
+#-------------------------------------------------------------------
+
+#for classic collatz, validate with https://www.ericr.nl/wondrous/pathrecs.html
+
+
+#-------------add=1-------------------
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+ks = mad_combos(n_primes=12, add_lim=2, n_divs_max=6)
+
+vs=records_path_all(fn_d='stats_main.bin',  #preliminary calculation: 82 GCFs * 300 s ~ 7 hrs
+   ks=ks, 
+   n_start=3, 
+   n_end=5e7, #calculate all odd numbers up to n_end or terminate at t_lim for each GCF with negative average slope
+   t_lim=60, 
+   log_n_max=10000, #terminating conditions for each calculation, see collatz docstring
+   ctr_lim=3e9,
+   ftype='save print all')
+
+ks_long = ((3,1,(2,)), (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (23,1,(2,3,7,11,17)), (17,1,(2,3,5,7,11,13)) )
+
+vs=records_path_all(data_all={},
+   fn_d=fn_d, 
+   ks=ks_long, 
+   n_start=3, 
+   n_end=3e9, 
+   t_lim=3000,  #extended calculation 
+   log_n_max=10000, 
+   ctr_lim=3e9, 
+   ftype='save print')
+
+
+
+#-------------extended (other add values)-------------------
+
+Calculate path records for different addition values to get better stats for average (log(path_record) vs log(N_start)) slope calculations
+
+Based on assumption that all stats and limits do not depend on add value if it is prime, which seems to be correct
+
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+db = db_load(fn_d)
+
+ks_long = ((3,1,(2,)), (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (23,1,(2,3,7,11,17)), (17,1,(2,3,5,7,11,13)) )
+
+ks_add_all = mad_combos(n_primes=12, add_lim=102, n_divs_max=6, ftype='primes only')
+ks_add = () 
+
+for k_long in ks_long: #create list/tuple of (mult, add, (divisors)) parameters with additional add values for each item in ks_long
+ ks_add_cur = tuple(k for k in ks_add_all if (k[0], 1, k[2]) == k_long)[1:10]
+ ks_add += ks_add_cur
+
+vs=records_path_all(fn_d=fn_d, ks=ks_add, n_start=3, n_end=5e7, t_lim=500, log_n_max=8000, ctr_lim=3e9, ftype='save print')
+
+
+#----calculating averaged values---
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+db = db_load('stats_main.bin')
+ks = db_keys(db)
+mads = ((3,1,(2,)), (5,1,(2,3)), (7, 1, (2,3)), (7,1,(2,5)), (23,1,(2,3,7,11,17)), (17,1,(2,3,5,7,11,13)) )
+mads = None
+
+for i in range(len(ks)):
+ mad = ks[i]
+ if mads != None and mad not in mads:
+  continue
+ slope_avg = db[mad]['slope_avg']
+ if slope_avg > 0:
+  continue
+ vs_avg = records_path_avg(mad=mad, data_all=db, n_adds=10)
+ records_top, records_all, nums_all, recs_all, adds_all, ns_min_all = [vs_avg[x] for x in ('path_records_top', 'path_records_all', 'nums_all', 'recs_all', 'adds_all', 'ns_min_all')]
+ nums_top_arr = np.array([log10(x[0]) for x in records_top])
+ recs_top_arr = np.array([log10(x[1]) for x in records_top])
+ j_sl = jump_slope_calc(records_all, inds=(0.5,1.0), ftype='lin_fit')[0] 
+ db[mad]['jump_lim_emp'] = j_sl
+ plt.clf()
+ p = plt.plot(nums_top_arr, recs_top_arr, c='red')
+ for i in range(len(nums_all)):
+  p = plt.plot(np.array([log10(x) for x in nums_all[i]]),np.array([log10(x) for x in recs_all[i]]), alpha=0.3)
+ fn_plt = f"pics/records_path_avg/{i:04}_{int(-100000*slope_avg):06}_{mad_to_str(mad)}"
+ plt.grid(True)
+ x_max, y_max = log10(max([x[-1] for x in nums_all])), log10(max([x[-1] for x in recs_all]))
+ plt.xlim(-0.1*x_max, 1.2*x_max)
+ plt.ylim(-0.1*y_max, 1.2*y_max)
+ plt.xlabel('log(n_start)')
+ plt.ylabel('log(path_rec')
+ plt.title(f"Path records, mult, divs: {mad[0]}, {mad[2]}")
+ plt.savefig(fn_plt)
+
+
+db_save(db, 'stats_main.bin')
+
+vs_avg = records_path_avg(mad=(3,1,(2,)), data_all=db, n_adds=10)
+records_top, records_all, nums_all, recs_all, adds_all, ns_min_all = [vs_avg[x] for x in ('path_records_top', 'path_records_all', 'nums_all', 'recs_all', 'adds_all', 'ns_min_all')]
+nums_top_arr = np.array([log10(x[0]) for x in records_top])
+recs_top_arr = np.array([log10(x[1]) for x in records_top])
+nums_all_arr = np.array([log10(x[0]) for x in records_all])
+recs_all_arr = np.array([log10(x[1]) for x in records_all])
+
+coeffs, covar = np.polyfit(nums_all_arr, recs_all_arr, deg=1, cov=True)
+stds = np.sqrt(np.diag(covar))
+coeffs, stds
+
+# (5,1,(2,3)): (array([1.4022946 , 0.62690652]), array([0.00859222, 0.03654264]))
+# (3,1,(2,)): (array([1.80007407, 0.36812962]), array([0.01869866, 0.08397635]))
+
+
+plt.clf()
+plt.scatter(nums_all_arr, recs_all_arr, s=2)
+p = plt.plot(nums_top_arr, recs_top_arr, c='red')
+for i in range(len(nums_all)):
+ p = plt.plot(np.array([log10(x) for x in nums_all[i]]),np.array([log10(x) for x in recs_all[i]]), alpha=0.3)
+
+plt.grid(True)
+
+
+jump_slope_calc(records_all, inds=(0.4,1.0), ftype='res_fit')
+ 
+#--------------
+
+Slope of jump records does not depend on addition values (only by mult and divisors)
+
+For most of GCFs which converge not very slowly, jump records form a band with well-defined linear slope and width; intercept is != 0.
+
+for slowly converging GCFs, band curves upwards strongly and true slope at infinity is difficult to estimate; intercept is << 0.
+
+Even for records up to 10**8, slope does not reach empirical limit of 2 observed in  https://www.ericr.nl/wondrous/pathrecs.html
+
+
+#---------------------------------------------------------
+#------------------------limit calculations---------------
+#---------------------------------------------------------
+
+
+#-----------------------single operation-type: only for (3,1,(2))
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+db = db_load('stats_main.bin')
+mad = (3,1,(2,))
+#db[mad]['op_freqs'] = np.array((1/3, 2/3))
+
+limits_calc(mad=mad, log_num=100000.0, n_iter_lim=3e5, t_lim=5, stats_inf=db[mad], ftype='single viz print')
+#slope_lim, compl_lim, jump_lim, slope_at_max_jump:
+
+(np.float64(-0.006476062826903544), np.float64(0.609089262515715), np.float64(1.999971630034091), np.float64(0.032460970649785294))
+
+#---------------
+
+#closely match values indicated in http://collatz.freehostia.com/TST.html
+#for (5,1, (2,3)) (screen the db[mad]['op_freqs'] line) jump limit is 2.585 which is obviously well above empirical trend (1.4 - 1.5)
+
+
+#----------------block-type calculations-----
+
+
+#----in development! optimal block length is very tricky to find out and in many cases, needed stats are very long to calculate.
+#Results are off by several percent, but match empirical values much more closely than 'single' calculation type
+
+#Possibly the solution is to find exact form of distribution of block slopes and to use it, although it is tricky as well.
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+fn = 'stats_main.bin'
+db = db_load(fn)
+ks = db_keys(db)
+
+ftype = 'block rate'
+k_suff = '_block'
+
+ftype = 'single'
+k_suff = '_single'
+for i in range(len(ks)):
+ mad = ks[i]
+ stats_inf = db[mad]
+ vs_lim = limits_calc(mad=mad, log_num=10000.0, n_iter_lim=3e5, t_lim=5, stats_inf=stats_inf, ftype=ftype)
+ slope_lim, compl_lim, jump_lim, jump_slope = vs_lim
+ db[mad].update({'slope_lim'+k_suff: slope_lim, 'jump_lim'+k_suff: jump_lim, 'jump_slope'+k_suff: jump_slope}) 
+ print(i, mad)
+
+
+db_save(db, fn)
+
+#----
+
+slopes = np.array([db[k]['slope_avg'] for k in ks])
+i_conv = np.where(slopes < 0)[0]
+
+jump_lim_emp = np.array([db[ks[i]]['jump_lim_emp'] for i in i_conv]) #brute-force values (depend on fit type!)
+jump_lim_single = np.array([db[ks[i]]['jump_lim_single'] for i in i_conv]) #operation type frequencies
+jump_lim_block = np.array([db[ks[i]]['jump_lim_block'] for i in i_conv])  #iter log slice stats
+jl_rel_block = jump_lim_block / jump_lim_emp
+jl_rel_single = jump_lim_single / jump_lim_emp
+
+plt.ion()
+plt.show()
+plt.clf()
+
+plt.scatter(-slopes[i_conv], jump_lim_emp, marker='x')
+plt.scatter(-slopes[i_conv], jump_lim_single, marker='x')
+plt.scatter(-slopes[i_conv], jump_lim_block, marker='x')
+plt.yscale('log')
+plt.xscale('log')
+plt.grid(True)
+plt.ylabel('jump limit')
+plt.xlabel('slope*-1.0')
+plt.title('Jump limits \n empirical, theoretical(block, single)')
+
+
+plt.clf()
+plt.scatter(-slopes[i_conv], jl_rel_block, marker='x')
+plt.scatter(-slopes[i_conv], jl_rel_single, marker='x')
+plt.grid(True)
+plt.xscale('log')
+
+plt.xlabel('avg_slope * -1')
+plt.ylabel('jump lim, obs/theor(block)/theor(single)')
+
+
+#most single-type-calculated jump limits are 2-3 times higher than empirical values while block-type-calculated values are within 0.8 - 1.2 of empirical ones.
+
+
+#========================================================================
+#====================visualizations======================================
+#========================================================================
+
+#--------------------------------------------------------------
+#---------------------data base visualizations-----------------
+#--------------------------------------------------------------
+
+
+#visualize slope, completeness and jump records vs. average slope of Collatz sequence defined by (mult, add, divisors)
+
+
+#-----------------------slope, completeness--------------------
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+plt.ion()
+plt.show()
+
+fn = 'stats_main.bin'
+data_all = db_load(fn)
+ks = db_keys(data_all)
+
+slopes_avg = np.array([data_all[k]['slope_avg'] for k in ks])
+i_conv = np.where(slopes_avg < 0)[0]
+slopes_conv = slopes_avg[i_conv]
+
+slopes_max = np.array([data_all[ks[i]]['records'].slopes[-1][i_float][i_slope] for i in i_conv])
+jumps_lim_emp = np.array([data_all[ks[i]]['jump_lim_emp'] for i in i_conv])
+slopes_lim_single = np.array([data_all[ks[i]]['slope_lim_single'] for i in i_conv])
+jumps_lim_single = np.array([data_all[ks[i]]['jump_lim_single'] for i in i_conv])
+slopes_lim_block = np.array([data_all[ks[i]]['slope_lim_block'] for i in i_conv])
+jumps_lim_block = np.array([data_all[ks[i]]['jump_lim_block'] for i in i_conv])
+
+
+plt.clf()
+plt.scatter(-1.0*slopes_conv, slopes_conv / slopes_max, s=10, alpha=0.7) 
+plt.scatter(-1.0*slopes_conv, slopes_conv / slopes_lim_single, s=10, alpha=0.7) 
+plt.scatter(-1.0*slopes_conv, slopes_conv / slopes_lim_block, s=10, alpha=0.7) 
+plt.xlabel('-1.0*Average slope')
+plt.ylabel('Slope: (record,limit) / average')
+plt.grid(True)
+plt.yscale('log')
+plt.xscale('log')
+
+
+plt.clf()
+plt.scatter(-1.0*slopes_conv, jumps_lim_emp, s=10, alpha=0.7) 
+plt.scatter(-1.0*slopes_conv, jumps_lim_single, s=10, alpha=0.7) 
+plt.scatter(-1.0*slopes_conv, jumps_lim_block, s=10, alpha=0.7) 
+plt.xlabel('-1.0*Average slope')
+plt.ylabel('jumps max, lim')
+plt.grid(True)
+plt.yscale('log')
+plt.xscale('log')
+
+
+plt.clf()
+plt.scatter(-1.0*slopes_conv, slopes_conv / (slopes_max * jumps_lim_emp), s=10, alpha=0.7) 
+plt.scatter(-1.0*slopes_conv, slopes_conv / (slopes_lim_single * jumps_lim_single), s=10, alpha=0.7)
+plt.scatter(-1.0*slopes_conv, slopes_conv / (slopes_lim_block * jumps_lim_block), s=10, alpha=0.7)
+plt.xlabel('-1.0*Average slope')
+plt.ylabel('slope_conv/(slope_max*jump_max) (record, lim)')
+plt.grid(True)
+plt.xscale('log')
+
+#most ratios very close to 4! (block and single-type limits), 
+aclual values closer to 2 
+
+
+
+
+#---------------cycles
+
+quit()
+set COLLCOMP=0 && python -i -c "from collatz import *"
+
+plt.ion()
+plt.show()
+
+fn = 'stats_main.bin'
+data_all = db_load(fn)
+ks = db_keys(data_all)
+
+for k in ks:
+ data_all[k].update(cycle_info_calc(data_all[k]))
+
+
+slopes_avg = np.array([data_all[x]['slope_avg'] for x in ks])
+slopes_avg_expand, log_ns_min, log_ns_max = [], [], []
+for k in ks:
+ ns_min, ns_max = data_all[k]['cycle_ns_min'][1:], data_all[k]['cycle_ns_max'][1:]
+ log_ns_min += [log10(x) for x in ns_min]
+ log_ns_max += [log10(x) for x in ns_max]
+ slopes_avg_expand += [data_all[k]['slope_avg'] for x in ns_min]
+
+
+plt.clf()
+#plt.scatter(slopes_avg_expand, log_ns_min, s=10) #not really representative
+plt.scatter(slopes_avg_expand, log_ns_max, s=10)
+plt.grid(True)
+plt.yscale('log')
+
+
+log_ns_min_mean, log_ns_max_mean = np.zeros_like(slopes_avg)*nan, np.zeros_like(slopes_avg)*nan
+log_ns_min_max, log_ns_max_max = np.zeros_like(slopes_avg)*nan, np.zeros_like(slopes_avg)*nan
+for i in range(len(ks)):
+ v = data_all[ks[i]]
+ if len(v['cycle_ns_min']) == 0 or max(v['cycle_ns_min']) <= 1:
+  continue
+ log_ns_min_mean[i] = np.mean([log10(x) for x in v['cycle_ns_min']])
+ log_ns_max_mean[i] = np.mean([log10(x) for x in v['cycle_ns_max']])
+ log_ns_min_max[i] = log10(max(v['cycle_ns_min']))
+ log_ns_max_max[i] = log10(max(v['cycle_ns_max']))
+
+
+plt.clf()
+plt.scatter(slopes_avg, log_ns_min_mean, s=20) #still not very informative
+plt.scatter(slopes_avg, log_ns_max_mean, s=20)
+plt.grid(True)
+plt.yscale('log')
+
+
+plt.clf()
+plt.scatter(slopes_avg, log_ns_min_max, s=20, alpha=0.6)
+plt.scatter(slopes_avg, log_ns_max_max, s=20, alpha=0.6)
+plt.grid(True)
+plt.yscale('log')
+plt.xlabel('Average slope')
+plt.ylabel('log10(max(cycle max values))')
+
+i_slope_srt = np.argsort(slopes_avg)
+
+thr = 25
+for i_s in range(len(ks)):
+ k = ks[i_slope_srt[i_s]]
+ d = data_all[k]
+ ns_max = [log10(x) for x in d['cycle_ns_max'][1:]]
+ ns_min = d['cycle_ns_min'][1:]
+ cycle_lens = d['cycle_lens'][1:]
+ if len(ns_max) > 0 and max(ns_max) > thr:
+  print(f"{i_s} {d['slope_avg']:.6f} {k} {[cycle_lens[i] for i in range(len(ns_max)) if ns_max[i] > thr]} {[ns_min[i] for i in range(len(ns_max)) if ns_max[i] > thr]} {[x for x in ns_max if x > thr]}")
+
+
+71 -0.003716 (29, 1, (2, 3, 5, 7, 11)) [797] [280673] [26.27676813193373]
+75 -0.002803 (23, 1, (2, 3, 5, 13, 19)) [3348] [707887] [32.52732421899797]
+76 -0.002680 (23, 1, (2, 3, 7, 11, 17)) [1092] [4379] [29.17957550258475]
+88 0.000425 (29, 1, (2, 3, 5, 11, 17, 23)) [74751] [59423] [170.43132341753514]
+89 0.000455 (17, 1, (2, 3, 11, 13)) [155252] [23] [207.7258362795275]
+90 0.000515 (23, 1, (2, 3, 7, 13, 19)) [179935, 4638] [629, 1187] [195.99353886026182, 35.78622631048804]
+125 0.009741 (29, 1, (2, 3, 7, 11, 17, 23)) [5619] [3599] [39.266725544210416]
+127 0.010965 (29, 1, (2, 3, 7, 11, 19, 23)) [1198] [257009] [36.9932967475863]
+147 0.016108 (31, 1, (2, 3, 5, 7, 11)) [1517] [293] [29.111152288565698]
+
+#three cycles reach >>10**100 while others do not get beyond 10**40.
+#all high cycles are found with slope_avg in range of (0.0004, 0.0052); several GCFs with smaller positive slopes do not have high cycles. 
+#all high cycles have quite similar lengths, 0.7e5 - 1.8e5.
+
+
+
+#add here cycle search results for these GCFs with other adds
+
+
+
+#------------------log visualizaton--------
+
+#calculate iteration logs of a sample of numbers and plot log(n) vs. iteration number for various sets of parameters.
+#demonstrate general trends of collatz iterations: average slope and dispersion.
+#takes several hours!
+
+quit()
+python
+from collatz import *
+
+
+plt.ion()
+plt.show()
+plt.close('all')
+
+mads = ((23, 1, (2,3,5,7)),  (23, 1, (2, 3, 7, 13, 19)), (23, 1, (2, 3, 7, 11, 17)), (11, 1, (2,3)), (17, 1, (2,3,7,13)), (5, 1, (2,)), (3, 1, (2,)), (31, 1, (2, 3, 5, 7, 11, 23)))
+n_digits=500#0
+ctr_lim = 1e6*100#0
+n_sample=20
+log_n_max=1000#0
+log_slice=100#0
+ctrs = np.arange(0, int(sqrt(ctr_lim)+1) + 1, 10)**2
+
+clrs = ['blue', 'red', 'green', 'cyan', 'purple', 'olive', 'brown', 'lightgray']
+figax = plt.subplots()
+t_0 = time.time()
+for i in range(len(mads)):
+ mad = mads[i]
+ clr = clrs[i]
+ print(i, f"{time.time() - t_0:.2f}", mad)
+ figax = collatz_viz(n_digits=n_digits, mad=mad, ctrs=ctrs, ctr_lim=ctr_lim, log_n_max=log_n_max, i_start=0, n_sample=n_sample, figax=figax, log_slice=log_slice, xscale='log', y_scale='lin', clr=clr, alpha=0.4, ftype='log')
+
+
+plt.ylim(0, log_n_max)
+plt.xscale('log')
+plt.xlim(30, 3*ctr_lim)
+plt.ylabel('log10(n)')
+plt.xlabel('Iteration number')
+
+
+#--------
+for each GCF, iteration logs occupy a distinctive expanding band on n_iter - log(n) plane
+
+
+#----------cumulative slope----------
+
+quit()
+python
+from collatz import *
+
+plt.ion()
+plt.show()
+
+n_digits, mad = 1000, (7,1,(2,5))
+
+plt.close('all')
+
+figax = collatz_viz(n_digits=200, mad=(7, 1, (2,5)), ctr_lim=1e5, log_n_max=2000, n_sample=100, i_start=0, log_slice=50, clr='red', ftype='slope', figax=None, alpha=0.2)
+
+figax = collatz_viz(n_digits=30, mad=(3, 1, (2,)), ctr_lim=1e5, log_n_max=2000, n_sample=1000, i_start=0, log_slice=1, clr='blue', ftype='slope', figax=figax, alpha=0.2)
+
+
+plt.xlabel('Iteration number')
+plt.ylabel('Cumulative slope')
+plt.title(f"log_num 30, mad = (3,1,(2,)), (7,1,(2,5))")
+
+
+
+#-------------log dispersion-------------
+
+quit()
+python
+from collatz import *
+
+plt.ion()
+plt.show()
+
+mad = (23, 1, (2,3,7,11,17))
+mad = (3, 1, (2,))
+mad = (5, 1, (2,))
+mad = (23, 1, (2,3,5,7))
+#mad = (13, 1, (2,3,5,7,11))
+
+mads = ((3, 1, (2,)), (5, 1, (2,)), (5,1, (2,3)), (7,1, (2,3)), (7, 1, (2,5)), (23, 1, (2,3,7,11,17)), (23, 1, (2,3,5,7)), (13, 1, (2,3,5,7,11)), (23, 1, (2,3,5,7,11,13,17,19)))
+
+plt.clf()
+
+log_slice=100
+n_digits=500
+n_sample=500
+ctr_lim=1e6
+
+t_0 = time.time()
+for mad in mads[:]:
+ log_log_arr = log_arr_calc(mad=mad, n_digits=n_digits, n_sample=n_sample, log_slice=log_slice, ctr_lim=ctr_lim, ftype='py_short')
+ ctrs = np.arange(log_log_arr.shape[1])*log_slice
+ stds = log_log_arr.std(axis=0)
+ std_sqr_fit = np.polyfit(ctrs, stds**2, 1)
+ slope, covar = scp.optimize.curve_fit(lambda x, m: m*x, ctrs, stds**2) 
+ print(f"{time.time() - t_0:.2f}\t{slope[0]:.6f} {std_sqr_fit[0]:.6f}\t{std_sqr_fit[1]:.2e}", mad)
+ p=plt.plot(ctrs, stds**2)
+ plt.grid(True)
+
+plt.xlabel('iteration number')
+plt.ylabel('log dispersion, squared')
+plt.title('Iteration log dispersions for several GCFs\ncolor-coded as in log_viz')
+
+plt.xscale('linear')
+plt.yscale('linear')
+
+plt.xlim(None)
+plt.ylim(None)
+plt.xscale('log')
+plt.yscale('log')
+
+
+18.49   0.0488 0.0496   -8.92e+00 (3, 1, (2,))
+70.81   0.0802 0.0802   6.29e-01 (5, 1, (2,))
+83.03   0.0531 0.0535   -2.71e+00 (5, 1, (2, 3))
+161.48  0.1231 0.1222   3.02e+01 (7, 1, (2, 3))
+339.50  0.1004 0.1034   -2.19e+02 (7, 1, (2, 5))
+730.40  0.1613 0.1614   -1.90e+01 (23, 1, (2, 3, 7, 11, 17))
+1277.62 0.1618 0.1588   4.11e+02 (23, 1, (2, 3, 5, 7))
+1302.25 0.1721 0.1696   1.62e+01 (13, 1, (2, 3, 5, 7, 11))
+1327.60 0.1858 0.1909   -2.85e+01 (23, 1, (2, 3, 5, 7, 11, 13, 17, 19))
+
+
+
+for all GCFs included here, logs dispersion grows as sqrt(ctr) which is expected if iteration logs are Markov chains.
+slope of log_dispersion vs sqrt(ctr) depends on (m,a,d) in a non-trivial way, but in general, the more divisors n the set, the higher is the slope. Typically, in log_std**2 = disp_slope*ctr, disp_slope is in range of 0.04 - 0.19.
+
+If sqrt dependence holds, all GCFs have two modes of convergence/divergence: due to average slope and due to dispersion.
+For divergent GCFs, fraction of converging numbers within an oomag is defined by oomag, average slope, dispersion. 
+
+
+quit()
+python
+from collatz import *
+
+plt.ion()
+plt.show()
+
+mad = (23, 1, (2,3,7,11,17))
+
+log_slice=100
+n_digits=400
+n_sample=10000
+ctr_lim=1e6
+
+log_log_arr = log_arr_calc(mad=mad, n_digits=n_digits, n_sample=n_sample, log_slice=log_slice, ctr_lim=ctr_lim, ftype='py_short print')
+
+bins = np.linspace(0, 700, 36)
+for i_c in range(10, log_log_arr.shape[-1], 1):
+ plt.clf()
+ l=plt.xlim(0, 700)
+ l=plt.ylim(0.1, 10000)
+ s=plt.yscale('log')
+ h, b = np.histogram(log_log_arr[:,i_c], bins=bins)
+ plt.plot(0.5*(b[1:] + b[:-1]), h)
+ plt.grid(True)
+ s=plt.savefig(f"pics/log_spread/log_spread_{i_c:04}")
+
+
+
+
+
+#--------------------------------Collatz functions on a complex plane, experimental----------------
+
+
+plots Collatz fractal on z plane, defined by GCFs where odd-type function is 3*n + add with adds taken from circle exp(2*pi*x*i), x in range of (0, 1).
+
+Coloring is based on number of iterations needed to diverge beyond abs(z) > threshold, interpolated by log(log(abs(z_last)).
+Nice fractal sequences form in some areas on z plane.
+
+quit()
+python
+from collatz import *
+
+t_0 = time.time()
+adds = np.exp(np.linspace(0, 2*pi, 1024) * 1j)
+for i_a in range(adds.size):
+ print(f"{(time.time() - t_0):.2f} \t {i_a} \t {adds[i_a]:.4f}")
+ vs_1 = collatz_arr(range_re=(-4.5,-3.5), range_im=(-0.5,0.5), n_pix=(1366,768), add=adds[i_a], mult=3, div=2, ctr_lim=30, lims=(1e2,1e10), tol=1e-6, odd_type=1)
+ n_iters_1, zs_fin_1, mask_main_1, re_ax_1, im_ax_1, zs_min_1, cycles_1 = vs_1
+ n_iters_trunc_1 = np.where(n_iters_1 <= 10, n_iters_1, 10) - 3
+ vs_2 = collatz_arr(range_re=(-4.5,-3.5), range_im=(-0.5,0.5), n_pix=(1366,768), add=adds[i_a], mult=3, div=2, ctr_lim=30, lims=(1e2,1e10), tol=1e-6, odd_type=2)
+ n_iters_2,  zs_fin_2, mask_main_2, re_ax_2, im_ax_2, zs_min_2, cycles_2 = vs_2
+ n_iters_fl_trunc_1 = n_iter_frac_calc(n_iters_1, zs_fin_1, trunc=10)
+ n_iters_fl_trunc_2 = n_iter_frac_calc(n_iters_2, zs_fin_2, trunc=30)
+ n_iters_norm_1 = np.log(np.log(n_iters_fl_trunc_1 + 1)) #(n_iters_fl_trunc_1 / n_iters_fl_trunc_1.max())
+ n_iters_norm_2 = np.log(np.log(n_iters_fl_trunc_2 + 1)) #(n_iters_fl_trunc_2 / n_iters_fl_trunc_2.max())
+ fn_1 = f"seqs_1/frac_{i_a:03.0f}.png"
+ fn_2 = f"seqs_2/frac_{i_a:03.0f}.png"
+ plt.imsave(fname=fn_1, arr=n_iters_norm_1.T, cmap='plasma', format='png') #pix by pix, but without axes
+ plt.imsave(fname=fn_2, arr=n_iters_norm_2.T, cmap='plasma', format='png') #pix by pix, but without axes
+
+
+
+
+
+
+#---------------remaining, general------------
+
+Refactor stats_all: 
+-make a function which works with whole database and list of keys (mads) and takes calc types as argument (slope_avg, op_freqs, records, etc.)
+-if key not in db, create it
+-if values not in db[key], calculate them
+-otherwise, skip/recalculate/update according to ftype
+

@@ -1,0 +1,36 @@
+
+#----------------логика collatz-------------------------
+
+Согласно ftype и n_init < jit_thr: jit-def, short, c-full
+Выдача - унифицированная для вех типов.
+
+
+#----------------выдача collatz
+
+ctr, ctr_odd, ctr_even, n_last, jump, glide, end_cond, iter_log, odd_log, num_buf = vs
+
+short_type: последние три - [], [], None
+full: iter_log, odd_log - списки, num_buf - буфер в collatz_c_full с повторным использованием, в остальных случаях None.
+
+#----------------выдача collatz_calc
+
+vs_int, vs_float, iter_log, odd_log, num_buf = vs (последние три - как в collatz)
+ctr, ctr_odd, ctr_even, n_last, jump, glide, end_cond = vs_int
+slope, compl, log_jump = vs_float
+
+#----------------end_cond convention
+
+-1 - default
+0 - converged to a known cycle (n in ns_min)
+1 - new cycle found (n not in ns_min, ctr < ctr_lim, n < n_max)
+2 - diverged (n > n_max)
+3 - undefined (ctr >= ctr_lim)
+4 - was inside a cycle (n_start == n_last, n == n_cycle_min)
+5 - fell below n_min_lim (used in jump record calculations)
+
+#
+
+
+
+#250618 log_stats, log_stats_ext -> log_stats_int, log_stats_float
+-gamma and res excluded, made into separate functions called on demand
